@@ -188,6 +188,7 @@ role_domains = {
         "hospitality",
     ],
     "vice_president": [
+        "alltasks",
         "vice_president",
         "campus_head_hyd",
         "campus_head_blr",

@@ -13,7 +13,7 @@ load_dotenv()
 
 SECRET_KEY = str(os.getenv('SECRET_KEY'))
 
-DEVELOPMENT = False
+DEVELOPMENT = True
 
 if DEVELOPMENT:
     DEBUG = True
@@ -145,7 +145,8 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 # STATIC_URL = '/static/'
-STATIC_URL = os.path.join(BASE_DIR, 'static/')
+STATIC_URL = "static/"
+# STATIC_URL = os.path.join(BASE_DIR, 'static/')
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 
 # MEDIA_URL = "media/"

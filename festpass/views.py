@@ -84,7 +84,7 @@ def passhome(request):
 
     else:
         if not participants_list.objects.filter(emails=request.user.email).exists():
-            return render(request, "passes_sold_out.html")
+            return render(request, "passhome.html")
         elif participants_list.objects.filter(emails=request.user.email).exists():
             if request.method == "POST":
                 name = request.POST.get("name")
