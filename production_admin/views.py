@@ -7,6 +7,9 @@ from django.http import HttpResponse
 from django.contrib import messages
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
+from django.core.management import call_command
+from io import StringIO
+from django.core.management.base import CommandError
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -93,20 +96,41 @@ def migrate_database(request, app_name):
             return redirect("production_admin:index")
 
         try:
-            makemigrations_command = ["python3", "manage.py", "makemigrations"]
+            # Get the project root directory (one level up from manage.py)
+            project_root = Path(settings.BASE_DIR).parent
+            venv_activate = project_root / "venv" / "bin" / "activate"
+
+            # Prepare the command with cd and source activation
+            command_prefix = f"cd {project_root} && source {venv_activate} && "
+            
+            # Prepare migration commands
+            makemigrations_command = command_prefix + "python3 manage.py makemigrations"
             if app_name:
-                makemigrations_command.append(app_name)
+                makemigrations_command += f" {app_name}"
+                
+            migrate_command = command_prefix + "python3 manage.py migrate"
+            if app_name:
+                migrate_command += f" {app_name}"
+
+            # Run makemigrations
             makemigrations_result = subprocess.run(
-                makemigrations_command, check=True, capture_output=True, text=True
+                makemigrations_command,
+                shell=True,
+                check=True,
+                capture_output=True,
+                text=True
             )
             messages.success(
                 request, f"Makemigrations results: {makemigrations_result.stdout}"
             )
-            migrate_command = ["python3", "manage.py", "migrate"]
-            if app_name:
-                migrate_command.append(app_name)
+
+            # Run migrate
             migrate_result = subprocess.run(
-                migrate_command, check=True, capture_output=True, text=True
+                migrate_command,
+                shell=True,
+                check=True,
+                capture_output=True,
+                text=True
             )
             messages.success(request, f"Migrate results: {migrate_result.stdout}")
             return redirect("production_admin:index")
@@ -115,3 +139,68 @@ def migrate_database(request, app_name):
             return redirect("production_admin:index")
     else:
         return redirect("corehome")
+
+
+def run_command(request):
+    if not request.user.is_superuser:
+        return redirect("corehome")
+        
+    if request.method != 'POST':
+        return redirect("production_admin:index")
+        
+    command = request.POST.get('command')
+    args = request.POST.get('args', '').split()
+    
+    if settings.DEVELOPMENT:
+        messages.success(
+            request, 
+            f"[DEVELOPMENT MODE] Command '{command} {' '.join(args)}' would run here. "
+            "This action is disabled in development environment."
+        )
+        return redirect("production_admin:index")
+    
+    try:
+        # Get the project root directory
+        project_root = Path(settings.BASE_DIR).parent
+        
+        # Try different possible virtualenv paths
+        possible_venv_paths = [
+            project_root / "venv" / "bin" / "activate",  # Unix/Linux
+            project_root / "venv" / "Scripts" / "activate",  # Windows
+            project_root / ".venv" / "bin" / "activate",  # Alternative Unix/Linux
+            project_root / "env" / "bin" / "activate",  # Another common name
+        ]
+        
+        # Find the first existing virtualenv path
+        venv_path = None
+        for path in possible_venv_paths:
+            if path.exists():
+                venv_path = path
+                break
+        
+        if venv_path:
+            # Use the virtualenv if found
+            full_command = f"cd {project_root} && source {venv_path} && python manage.py {command} {' '.join(args)}"
+        else:
+            # Fall back to system Python if no virtualenv found
+            full_command = f"cd {project_root} && python manage.py {command} {' '.join(args)}"
+        
+        # Run the command
+        result = subprocess.run(
+            full_command,
+            shell=True,
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        
+        messages.success(request, f"Command output:\n{result.stdout}")
+        if result.stderr:
+            messages.warning(request, f"Command stderr:\n{result.stderr}")
+            
+    except subprocess.CalledProcessError as e:
+        messages.error(request, f"Error running command: {e.stderr}")
+    except Exception as e:
+        messages.error(request, f"Error: {str(e)}")
+        
+    return redirect("production_admin:index")
