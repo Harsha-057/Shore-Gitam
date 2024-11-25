@@ -49,14 +49,15 @@ class CustomUser(AbstractUser):
     isLead = models.BooleanField(default=False)
     # Add other role fields as needed
 
+    prebooking = models.BooleanField(default=False)
     is_festpass_purchased = models.BooleanField(default=False)
     is_gitamite = models.BooleanField(default=True)
-    # accomdation = models.BooleanField(default=False)
+    accomdation = models.BooleanField(default=False)
     sports = models.BooleanField(default=False)
 
     username = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(unique=True)
-    phone_number = models.IntegerField(null=True, blank=True)
+    phone_number = models.CharField( max_length=20,null=True, blank=True)
     registration_number = models.CharField(max_length=255, null=True, blank=True)
     age = models.IntegerField(null=True, blank=True)
     gender = models.CharField(max_length=255, choices=gender_choices, blank=True, null=True)

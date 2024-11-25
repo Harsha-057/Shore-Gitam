@@ -121,11 +121,18 @@
                     <!-- QR Code -->
                     <div class="flex justify-center relative z-10">
                         <div class="p-4 bg-emerald-100 rounded-xl">
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ request.user.passhash }}" alt="QR Code" class="w-32 h-32">
+                            <img id="qrCode" src="https://quickchart.io/qr?text={{ request.user.passhash }}&ecLevel=H&size=200&format=png" alt="QR Code" class="w-32 h-32">
                         </div>
                     </div>
 
-                  
+                    <!-- Alternate API for QR Code -->
+
+                    <!-- <div class="flex justify-center relative z-10">
+                        <div class="p-4 bg-emerald-100 rounded-xl">
+                            <img id="qrCode" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ request.user.passhash }}" alt="QR Code" class="w-32 h-32">
+                        </div>
+                    </div> -->
+
                 </div>
 
                 <!-- Disclaimer -->
@@ -139,9 +146,9 @@
         </div>
 
         <!-- Download Button -->
-        <button class="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded">
+        <!-- <button onclick="window.print()"  class="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded">
             Download E-Ticket
-        </button>
+        </button> -->
     </div>
 </body>
 </html>
