@@ -4,17 +4,17 @@ import requests
 import json
 import random
 from datetime import datetime
+import os
 
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.template.loader import get_template
 from django.core.mail import EmailMultiAlternatives
 from django.http import HttpResponse
-from django.db.models import Count
+from django.db.models import Count , Max
 from coreteam.models import CustomUser
 from payments.models import FestPass
 from production_admin.models import PassStatus
@@ -126,6 +126,8 @@ def is_transaction_success(user_email):
             return True
         else:
             return False
+    else:
+        return False
         
 
 
@@ -137,6 +139,8 @@ def is_transaction_failed(user_email):
             return True
         else:
             return False
+    else:
+        return False
 
 
 
@@ -149,6 +153,8 @@ def is_transaction_pending(user_email):
             return True
         else:
             return False
+    else:
+        return False
 
 
 
@@ -197,6 +203,10 @@ def logout_user(request):
 
 
 def signup(request):
+    # removing signup temporarily, need to enable once festpasses for non gitam students are enabled
+    messages.info(request, "Please use Sign in with Google")
+    return redirect("home:login")
+
     if request.user.is_authenticated:
         return redirect('home:dashboard')
     if request.POST:
@@ -324,6 +334,12 @@ def festpass(request):
             if request.user.is_festpass_purchased:
                 return redirect('home:eticket')        
             else:
+                if is_transaction_success(request.user.email):
+                    request.user.is_festpass_purchased = True
+                    request.user.save()
+                    send_email_async(request.user.email, send_festpass_email)
+                    return redirect('home:eticket')
+                
                 data = {
                     "email": str(request.user.email)
                 }
@@ -347,6 +363,15 @@ def festpass(request):
                     return render(request, 'home/festpass.html', context)
 
         elif request.POST:
+            """Check whether user has accepted all terms and conditions or not"""
+            if (
+                "terms1" not in request.POST or
+                "terms2" not in request.POST or
+                "terms3" not in request.POST
+            ):
+                messages.error(request, "Please accept all the terms and conditions to purchase festpass")
+                return redirect("home:festpass")
+
             user = CustomUser.objects.get(email=request.user.email)
 
             reg_num = request.POST.get('registrationNumber')
@@ -358,6 +383,15 @@ def festpass(request):
                 campus = request.POST.get('campus')
             course = request.POST.get('course')
             profile_picture = request.FILES.get('profilePic')
+
+            # Validate the file extension
+            if profile_picture:
+                valid_extensions = ['.jpg', '.jpeg', '.png']
+                extension = os.path.splitext(profile_picture.name)[1].lower()
+                if extension not in valid_extensions:
+                    messages.error(request, "Invalid file type. Only JPG, JPEG, and PNG files are allowed.")
+                    return redirect('home:festpass')
+
             sports_participation = request.POST.get('participatingInSports')
             accomdation = request.POST.get('needAccommodation')
 
@@ -498,7 +532,11 @@ def dashboard(request):
             send_email_async(request.user.email, send_festpass_email)
             context['festpass_validated'] = True
         elif is_transaction_failed(request.user.email):
-            transactions = FestPass.objects.filter(email=request.user.email).values('txn_id').annotate(count=Count('txn_id'))
+            transactions = FestPass.objects.filter(email=request.user.email).values('txn_id').annotate(
+                count=Count('txn_id'),
+                posted_date=Max('posted_date'),
+                transaction_status=Max('transaction_status')
+            )
             # transactions = FestPass.objects.filter(email=request.user.email)
             context['transactions'] = transactions
             
@@ -524,6 +562,15 @@ def dashboard(request):
 
         if request.user.is_festpass_purchased and is_transaction_success(request.user.email):
             context['festpass_validated'] = True
+            
+        total_tickets_sold = FestPass.objects.filter(transaction_status="Y").count() #.values('email').annotate(count=Count('email')).order_by('-count')
+
+        total_unique_tickets = FestPass.objects.filter(
+            txn_id__isnull = False,
+            transaction_status = "Y"
+        ).values("txn_id").distinct().count()
+
+        context['total_tickets_sold'] = total_unique_tickets
             
         return render(request, 'home/dashboard.html', context)
     
